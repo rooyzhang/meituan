@@ -32,4 +32,22 @@ function aesCrypto () {
   }
 }
 
-module.exports = v => aesCrypto().validate(decodeURIComponent(v))
+function encrypt (text) {
+  const key = CryptoJS.enc.Utf8.parse(t)
+  const iv = CryptoJS.enc.Utf8.parse(n)
+  const msg = JSON.stringify(text)
+  const result = CryptoJS.AES.encrypt(msg, key, {
+    iv,
+    mode: CryptoJS.mode.CBC
+  }).toString()
+  return aesCrypto().md5(msg) + encodeURIComponent(result)
+}
+
+function decrypto (v) {
+  return aesCrypto().validate(decodeURIComponent(v))
+}
+
+module.exports = {
+  encrypt,
+  decrypto
+}

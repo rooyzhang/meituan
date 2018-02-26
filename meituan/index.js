@@ -1,9 +1,9 @@
 const axios = require('axios')
 const querystring = require('querystring')
-let cookies = require('./cookies')
 const phone = require('./phone')
 const rohr = require('./rohr')
 const crypto = require('./crypto')
+const randomChar = require('./random-char')
 
 const origin = 'https://activity.waimai.meituan.com'
 
@@ -40,7 +40,7 @@ async function request ({url, mobile}) {
     params._token = rohr.reload(`${url}?${querystring.stringify(params)}`)
     // console.log(params)
     const {data} = await request.post(url, params, config)
-    data.data = crypto(data.data)
+    data.data = crypto.decrypto(data.data)
     if (typeof data.data === 'string') {
       data.data = JSON.parse(data.data)
     }
@@ -48,7 +48,6 @@ async function request ({url, mobile}) {
     return data
   }
 
-  let index = 0
   const {data} = await post('/async/coupon/sharechannelredirect', params)
   if (data === false) {
     throw new Error('红包链接不正确\n或\n请求美团服务器失败')
@@ -60,11 +59,14 @@ async function request ({url, mobile}) {
     const res = await (async function grabShareCoupon () {
       const userPhone = userPhone2 || phone(userPhone2)
       console.log(`使用 ${userPhone} 尝试领取`)
-      const cookie = cookies[index]
-      if (!cookie) {
-        console.log('没这么多微信号 或 红包链接不正确')
-        throw new Error('红包链接不正确\n或\n请求美团服务器失败')
+      let cookie = {
+        imgUrl: '',
+        nickname: randomChar(10),
+        openId: randomChar(28)
       }
+      console.log(cookie)
+      cookie = `ewxinfo="${crypto.encrypt(cookie)}"`
+      console.log(cookie)
       const res = await post('/coupon/grabShareCoupon', {
         userPhone,
         channelUrlKey: data.channelUrlKey,
@@ -87,17 +89,13 @@ async function request ({url, mobile}) {
       // 7003 已领过
       // 4000 抢光了
       // 7002 微信 cookie 不正确或失效
-      // 7006 今日领取次数达达到上限。领取次数居然是跟微信号走的，做公开服务暂时无解
+      // 7006 今日领取次数达达到上限
       console.log(res.code, res.msg)
       if ([1, 4000, 7003].includes(res.code)) {
         return res
       }
       if (res.code === 7002) {
-        throw new Error(`账号（${index}）无效，需要更新 cookie`)
-      }
-      if (res.code === 7006) {
-        const [first, ...other] = cookies
-        cookies = [...other, first]
+        console.log(`账号无效，继续随机`)
       }
       return grabShareCoupon()
     })()
@@ -108,7 +106,6 @@ async function request ({url, mobile}) {
       return res.data.wxCoupons.find(w => w.bestLuck)
     }
     console.log(`还有 ${number} 个是最佳红包`)
-    index++
     return lottery(number === 1 ? mobile : null)
   })()
 }
